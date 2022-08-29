@@ -495,7 +495,7 @@ public class SettingFragment extends BaseFragment {
                 String COMMA = ", ";
                 String END = "\n";
                 opStream.write("patient_name" + COMMA + "patient_number"+ COMMA + "device_address" + COMMA +
-                        "date" + COMMA + "current" + COMMA +"work"+COMMA+"ref"+COMMA+"battery_level" + COMMA + END);
+                        "date" + COMMA + "current[nA]" + COMMA +"work[V]"+COMMA+"ref[V]"+COMMA+"battery_level" + COMMA + END);
                 if(glucoseDataList!=null && glucoseDataList.size()>0){
                     for(int i=0 ; i<glucoseDataList.size() ; i++){
                         GlucoseData data = glucoseDataList.get(i);
