@@ -146,7 +146,7 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
     public String mServiceUUID = null;
 
     public float getCurrent(){
-       return BluetoothConnections.getInstance(this).getCurrent();
+       return BluetoothConnections.getInstance(this,mServiceUUID).getCurrent();
     }
     public void setPatient(String name, long number){
         currentUser = name;
@@ -163,7 +163,7 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
     private long patientNumber;
     private boolean batteryWarned = false;
     private void setBattery(float battery){
-        BluetoothConnections.getInstance(this).setBattery(battery);
+        BluetoothConnections.getInstance(this,mServiceUUID).setBattery(battery);
         if(battery<CommonConstant.MIN_BATTERY_LEVEL){
             if(!batteryWarned){
                 batteryWarned = true;
@@ -177,7 +177,7 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
         }
     }
     public boolean isInitializeed(){
-        return BluetoothConnections.getInstance(this).isInitializeed();
+        return BluetoothConnections.getInstance(this,mServiceUUID).isInitializeed();
     }
     @Override
     public void doOnConnectionStateChange(String address, int status, int newState, int mConnectionState, boolean showReconnectNoti) {
@@ -220,11 +220,11 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
 
                 } else {
                     mNotificationManager.cancelAll();
-                    BluetoothConnections.getInstance(this).disconnect();
-                    BluetoothConnections.getInstance(this).close();
+                    BluetoothConnections.getInstance(this,mServiceUUID).disconnect();
+                    BluetoothConnections.getInstance(this,mServiceUUID).close();
 
                     if(!TextUtils.isEmpty(mServiceUUID)){
-                        BluetoothConnections.getInstance(this).removeGattCallback(mServiceUUID);
+                        BluetoothConnections.getInstance(this,mServiceUUID).removeGattCallback(mServiceUUID);
                     }
                     stopSelf();
                 }
@@ -244,7 +244,7 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
             observeUserLiveData();
         }
         float current = 0;
-        float glucose = 0;
+
         /**
          * remove 0xFD: // Set Timer
          */
@@ -260,41 +260,53 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
                 byte[] ref_level = { uartData[17], uartData[18], uartData[19], uartData[20]};
 
                 float bat = ByteBuffer.wrap(bat_level).order(ByteOrder.LITTLE_ENDIAN).getFloat();
-                float ref = ByteBuffer.wrap(ref_level).order(ByteOrder.LITTLE_ENDIAN).getFloat();
-                float final_bat_level = bat / ref * 100;
+                //float ref = ByteBuffer.wrap(ref_level).order(ByteOrder.LITTLE_ENDIAN).getFloat();
+                //float final_bat_level = bat / ref * 100;
 
                 setBattery(bat);
                 current = ByteBuffer.wrap(we1bytes).order(ByteOrder.LITTLE_ENDIAN).getFloat();
-                glucose = current;
-                BluetoothConnections.getInstance(this).setCurrent(current);
+              //  glucose = current;
+                BluetoothConnections.getInstance(this,mServiceUUID).setCurrent(current);
 
-                mRepository.insertGluecoseData(new GlucoseData(0,
-                        address,
-                        System.currentTimeMillis(),
-                        current, glucose,currentUser,patientNumber, getBattery()
-                        ));
+//                mRepository.insertGluecoseData(new GlucoseData(0,
+//                        address,
+//                        System.currentTimeMillis(),
+//                        current, glucose,currentUser,patientNumber, getBattery()
+//                        ));
 
                 mNotificationManager.notify(NOTIFICATION_ID, getNotification());
 
                 break;
             case (byte)0x47:
                 //kjlee Test
-                byte[] s = {uartData[2], uartData[3], uartData[4], uartData[5],uartData[6], uartData[7]};
-                byte[] s2 = {uartData[12], uartData[13], uartData[14], uartData[15]};
-                String BatLevel = new String(s2);
-                float batt = Float.parseFloat(BatLevel);
+                byte[] b_current = {uartData[2], uartData[3], uartData[4], uartData[5],uartData[6], uartData[7]};
+                byte[] b_work = {uartData[11], uartData[12], uartData[13], uartData[14],uartData[15], uartData[16]};
+                byte[] b_ref = {uartData[20], uartData[21], uartData[22], uartData[23],uartData[24], uartData[25]};
+                byte[] b_batt = {uartData[29], uartData[30], uartData[31], uartData[32]};
+
+
+                String S_batLevel = new String(b_batt);
+                String S_current= new String(b_current);
+                String S_work= new String(b_work);
+                String S_ref= new String(b_ref);
+
+
+                Log.e(TAG,"확인 G: "+S_current+" W: "+S_work+" R: "+S_ref+" B: "+S_batLevel);
+                float batt = Float.parseFloat(S_batLevel)*2.0f;
 
                 setBattery(batt);
 
-                String data = new String(s);
-                float voltage = Float.parseFloat(data);
-                current =  (float) ((voltage*2.0 - 0.895f)*1000.0/10.0);
-                glucose = current;
+
+                float voltage = Float.parseFloat(S_current)*2.0f;
+                float work=Float.parseFloat(S_work)*2.0f;
+                float ref=Float.parseFloat(S_ref)*2.0f;
+                current =  (float) ((voltage-work)*1000.0/10.0);
+
 
                 mRepository.insertGluecoseData(new GlucoseData(0,
                         address,
                         System.currentTimeMillis(),
-                        current, glucose,currentUser, patientNumber, getBattery()
+                        current, work,ref,currentUser, patientNumber, getBattery()
                 ));
                 break;
             default:
@@ -339,9 +351,9 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
         Log.e(TAG, "onCreate start");
         if(mServiceUUID == null){
             mServiceUUID = UUID.randomUUID().toString();
-            boolean fallback = BluetoothConnections.getInstance(this).setGattCallbackResultWithResult(mServiceUUID, this);
+            boolean fallback = BluetoothConnections.getInstance(this,mServiceUUID).setGattCallbackResultWithResult(mServiceUUID, this);
             if(!fallback){
-                BluetoothConnections.getInstance(this).setGattCallbackResultWithResult(mServiceUUID, this);
+                BluetoothConnections.getInstance(this,mServiceUUID).setGattCallbackResultWithResult(mServiceUUID, this);
             }
         }
 
@@ -393,20 +405,20 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
         Log.e(TAG, "bluetoothservice onStartCommand");
         if(mServiceUUID == null){
             mServiceUUID = UUID.randomUUID().toString();
-            boolean fallback = BluetoothConnections.getInstance(this).setGattCallbackResultWithResult(mServiceUUID, this);
+            boolean fallback = BluetoothConnections.getInstance(this,mServiceUUID).setGattCallbackResultWithResult(mServiceUUID, this);
             if(!fallback){
-                BluetoothConnections.getInstance(this).setGattCallbackResultWithResult(mServiceUUID, this);
+                BluetoothConnections.getInstance(this,mServiceUUID).setGattCallbackResultWithResult(mServiceUUID, this);
             }
         }
 
         if (intent.getAction() != null && intent.getAction().equals(ACTION_STOP_SERVICE)) {
-            BluetoothConnections.getInstance(this).disconnect();
-            BluetoothConnections.getInstance(this).close();
+            BluetoothConnections.getInstance(this,mServiceUUID).disconnect();
+            BluetoothConnections.getInstance(this,mServiceUUID).close();
             mNotificationManager.cancelAll();
-            BluetoothConnections.getInstance(this).removeBluetoothUpdates();
+            BluetoothConnections.getInstance(this,mServiceUUID).removeBluetoothUpdates();
             stopForeground(true);
             if(!TextUtils.isEmpty(mServiceUUID)){
-                BluetoothConnections.getInstance(this).removeGattCallback(mServiceUUID);
+                BluetoothConnections.getInstance(this,mServiceUUID).removeGattCallback(mServiceUUID);
             }
             stopSelf();
 
@@ -417,15 +429,15 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
 
                 startForeground(NOTIFICATION_ID, getNotification());
             }
-            boolean init =BluetoothConnections.getInstance(this).isInitializeed();
+            boolean init =BluetoothConnections.getInstance(this,mServiceUUID).isInitializeed();
             if(!init){
-                init = BluetoothConnections.getInstance(this).initialize();
+                init = BluetoothConnections.getInstance(this,mServiceUUID).initialize();
             }
             if(init){
                 String device = BluetoothUtil.requestingLocationUpdates(this);
                 Log.e(TAG, "bluetoothservice last connected device:" + device);
-                if (!TextUtils.isEmpty(device) && !isDeviceConnected() && BluetoothConnections.getInstance(this).getState() != STATE_CONNECTING) {
-                    BluetoothConnections.getInstance(this).setReconnectRequested(true);
+                if (!TextUtils.isEmpty(device) && !isDeviceConnected() && BluetoothConnections.getInstance(this,mServiceUUID).getState() != STATE_CONNECTING) {
+                    BluetoothConnections.getInstance(this,mServiceUUID).setReconnectRequested(true);
                     scanStartForConnect(device);
 
                 }
@@ -587,10 +599,10 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
         mChangingConfiguration = true;
     }
     public void disconnect(){
-        BluetoothConnections.getInstance(this).disconnect();
+        BluetoothConnections.getInstance(this,mServiceUUID).disconnect();
     }
     public void removeBluetoothUpdates(){
-        BluetoothConnections.getInstance(this).removeBluetoothUpdates();
+        BluetoothConnections.getInstance(this,mServiceUUID).removeBluetoothUpdates();
     }
     @Override
     public IBinder onBind(Intent intent) {
@@ -598,23 +610,23 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
         isBinded = true;
         if(mServiceUUID == null){
             mServiceUUID = UUID.randomUUID().toString();
-            boolean fallback = BluetoothConnections.getInstance(this).setGattCallbackResultWithResult(mServiceUUID, this);
+            boolean fallback = BluetoothConnections.getInstance(this,mServiceUUID).setGattCallbackResultWithResult(mServiceUUID, this);
             if(!fallback){
-                BluetoothConnections.getInstance(this).setGattCallbackResultWithResult(mServiceUUID, this);
+                BluetoothConnections.getInstance(this,mServiceUUID).setGattCallbackResultWithResult(mServiceUUID, this);
             }
         }
         stopForeground(true);
         mChangingConfiguration = false;
         setAlarm();
-        boolean init =BluetoothConnections.getInstance(this).isInitializeed();
+        boolean init =BluetoothConnections.getInstance(this,mServiceUUID).isInitializeed();
         if(!init){
-            init = BluetoothConnections.getInstance(this).initialize();
+            init = BluetoothConnections.getInstance(this,mServiceUUID).initialize();
         }
         if(init){
             String device = BluetoothUtil.requestingLocationUpdates(this);
             Log.e(TAG, "bluetoothservice last connected device:" + device);
-            if (!TextUtils.isEmpty(device) && !isDeviceConnected() && BluetoothConnections.getInstance(this).getState() != STATE_CONNECTING) {
-                BluetoothConnections.getInstance(this).setReconnectRequested(true);
+            if (!TextUtils.isEmpty(device) && !isDeviceConnected() && BluetoothConnections.getInstance(this,mServiceUUID).getState() != STATE_CONNECTING) {
+                BluetoothConnections.getInstance(this,mServiceUUID).setReconnectRequested(true);
                 scanStartForConnect(device);
             }
 
@@ -646,17 +658,17 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
             } else {
                 Log.e(TAG,"637 destroy");
                 try{
-                    BluetoothConnections.getInstance(this).disconnect();
+                    BluetoothConnections.getInstance(this,mServiceUUID).disconnect();
                 }catch (Exception e){}
                 try{
-                    BluetoothConnections.getInstance(this).close();
+                    BluetoothConnections.getInstance(this,mServiceUUID).close();
                 }catch (Exception e){}
 
                 try{
                     mNotificationManager.cancelAll();
                 }catch (Exception e){}
                 try{
-                    BluetoothConnections.getInstance(this).removeBluetoothUpdates();
+                    BluetoothConnections.getInstance(this,mServiceUUID).removeBluetoothUpdates();
                 }catch (Exception e){}
 
                 try{
@@ -664,7 +676,7 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
                 }catch (Exception e){}
                 try{
                     if(!TextUtils.isEmpty(mServiceUUID)){
-                        BluetoothConnections.getInstance(this).removeGattCallback(mServiceUUID);
+                        BluetoothConnections.getInstance(this,mServiceUUID).removeGattCallback(mServiceUUID);
                     }
                     stopSelf();
                 }catch (Exception e){}
@@ -674,10 +686,10 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
         } else {
             Log.e(TAG,"665 destroy");
             try{
-                BluetoothConnections.getInstance(this).disconnect();
+                BluetoothConnections.getInstance(this,mServiceUUID).disconnect();
             }catch (Exception e){}
             try{
-                BluetoothConnections.getInstance(this).close();
+                BluetoothConnections.getInstance(this,mServiceUUID).close();
             }catch (Exception e){}
 
             try{
@@ -690,7 +702,7 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
             }catch (Exception e){}
             try{
                 if(!TextUtils.isEmpty(mServiceUUID)){
-                    BluetoothConnections.getInstance(this).removeGattCallback(mServiceUUID);
+                    BluetoothConnections.getInstance(this,mServiceUUID).removeGattCallback(mServiceUUID);
                 }
                 stopSelf();
             }catch (Exception e){}
@@ -712,14 +724,14 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
 
 
     public String getConnectedAddress(){
-        return BluetoothConnections.getInstance(this).getConnectedAddress();
+        return BluetoothConnections.getInstance(this,mServiceUUID).getConnectedAddress();
     }
 
     public boolean isDeviceConnected(){
-       return BluetoothConnections.getInstance(this).isDeviceConnected();
+       return BluetoothConnections.getInstance(this,mServiceUUID).isDeviceConnected();
     }
     public int getPairingDeviceStatus() throws IllegalStateException {
-        return BluetoothConnections.getInstance(this).getPairingDeviceStatus();
+        return BluetoothConnections.getInstance(this,mServiceUUID).getPairingDeviceStatus();
     }
 
 
@@ -731,11 +743,11 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
         Intent intent = new Intent(this, BluetoothService.class);
 
         CharSequence text = getString(R.string.app_name) + " ";
-        String title = BluetoothConnections.getInstance(this).bluetoothDeviceAddress();
+        String title = BluetoothConnections.getInstance(this,mServiceUUID).bluetoothDeviceAddress();
         if(TextUtils.isEmpty(title)){
             title = getString(R.string.notification_text_device);
         }
-        if(BluetoothConnections.getInstance(this).checkDeviceConnected()){
+        if(BluetoothConnections.getInstance(this,mServiceUUID).checkDeviceConnected()){
             title += getString(R.string.notification_text_connected);
             /*
             if(BluetoothConnections.getInstance(this).getCurrent() != Float.NaN){
@@ -743,7 +755,7 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
             }
             */
 
-        } else if(BluetoothConnections.getInstance(this).checkDeviceConnecting()){
+        } else if(BluetoothConnections.getInstance(this,mServiceUUID).checkDeviceConnecting()){
             title += getString(R.string.notification_text_connecting);
         } else {
             title += getString(R.string.notification_text_disconnected);
@@ -1110,20 +1122,20 @@ public class BluetoothService extends  LifecycleService implements BluetoothConn
 
 
     public float getBattery(){
-        return BluetoothConnections.getInstance(this).getBattery();
+        return BluetoothConnections.getInstance(this,mServiceUUID).getBattery();
     }
     public int getRSSI(){
-        return BluetoothConnections.getInstance(this).getRSSI();
+        return BluetoothConnections.getInstance(this,mServiceUUID).getRSSI();
     }
 
     public void scanStartForConnect(String address){
-        BluetoothConnections.getInstance(this).scanStartForConnect(address);
+        BluetoothConnections.getInstance(this,mServiceUUID).scanStartForConnect(address);
     }
     public boolean isBluetoothEnabled(){
-        return BluetoothConnections.getInstance(this).isBluetoothEnabled();
+        return BluetoothConnections.getInstance(this,mServiceUUID).isBluetoothEnabled();
     }
     public void scanLeDevice(final boolean enable, boolean isReset) {
-        BluetoothConnections.getInstance(this).scanLeDevice(enable, isReset);
+        BluetoothConnections.getInstance(this,mServiceUUID).scanLeDevice(enable, isReset);
     }
 
     @Override

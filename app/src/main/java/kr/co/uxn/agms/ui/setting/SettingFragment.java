@@ -495,13 +495,13 @@ public class SettingFragment extends BaseFragment {
                 String COMMA = ", ";
                 String END = "\n";
                 opStream.write("patient_name" + COMMA + "patient_number"+ COMMA + "device_address" + COMMA +
-                        "date" + COMMA + "current" + COMMA + "battery_level" + COMMA + END);
+                        "date" + COMMA + "current" + COMMA +"work"+COMMA+"ref"+COMMA+"battery_level" + COMMA + END);
                 if(glucoseDataList!=null && glucoseDataList.size()>0){
                     for(int i=0 ; i<glucoseDataList.size() ; i++){
                         GlucoseData data = glucoseDataList.get(i);
                         opStream.write(data.getUser() + COMMA + data.getPatientNumber() + COMMA
                                 + data.getDeviceAddress() + COMMA + fullDateFormat.format(new Date(data.getData_date()))  + COMMA
-                                + data.getWe_current() + COMMA + data.getBatteryLevel()  + END);
+                                + data.getWe_current() + COMMA +data.getWe_work()+COMMA+data.getWe_ref()+COMMA+data.getBatteryLevel()  + END);
                     }
                 }
 

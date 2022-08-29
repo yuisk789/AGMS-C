@@ -10,9 +10,12 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Handler;
+import android.os.IBinder;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -30,14 +33,17 @@ public class BluetoothConnections extends BluetoothGattCallback implements Bluet
     private static final String TAG = "BluetoothConnections";
     private static final long SCAN_PERIOD = 20000;
 
+    private BluetoothService mBluetoothService;
+
 
 
 
     static BluetoothConnections instance;
+    private  String mServiceUUID=null;
 
-    public static BluetoothConnections getInstance(Context context){
+    public static BluetoothConnections getInstance(Context context,String ServiceUUID){
         if(instance == null){
-            instance = new BluetoothConnections(context);
+            instance=new BluetoothConnections(context,ServiceUUID);
         }
         return instance;
     }
@@ -49,12 +55,15 @@ public class BluetoothConnections extends BluetoothGattCallback implements Bluet
     }
 
     Context mContext;
-    public BluetoothConnections(Context context){
+    public BluetoothConnections(Context context, String serviceUUID){
         mContext = context.getApplicationContext();
         mBluetoothGattCallbackMap = new HashMap<>();
         mHandler = new Handler(mContext.getMainLooper());
         initialize();
         mDeviceAddress = BluetoothUtil.requestingLocationUpdates(mContext);
+        mContext.bindService(new Intent(mContext, BluetoothService.class), mBluetoothServiceConnection,
+                Context.BIND_AUTO_CREATE);
+        mServiceUUID=serviceUUID;
         Log.e(TAG, "BluetoothConnections last connected device:" + mDeviceAddress);
     }
     public void doWhenRemoveInstance(){
@@ -143,22 +152,38 @@ public class BluetoothConnections extends BluetoothGattCallback implements Bluet
     public void onCharacteristicChanged(BluetoothGatt gatt,
                                         BluetoothGattCharacteristic characteristic) {
         final byte[] data = characteristic.getValue();
+        Log.e(TAG,"서비스에 전달 확인0");
         broadcastUpdate(BluetoothService.ACTION_DATA_AVAILABLE, characteristic);
         if (data != null && data.length > 0) {
+            Log.e(TAG,"서비스에 전달 확인001");
             final String targetAddress = gatt.getDevice().getAddress();
             try{
+                Log.e(TAG,"서비스에 전달 확인002");
+                Log.e(TAG,"확인: "+mBluetoothGattCallbackMap.size());
+                if(mBluetoothGattCallbackMap.isEmpty()){
+
+
+                    setGattCallbackResultWithResult(this.mServiceUUID,mBluetoothService);
+                    Log.e(TAG,"생성확인");
+                }
+
                 if(!mBluetoothGattCallbackMap.isEmpty()){
+                    Log.e(TAG,"서비스에 전달 확인003");
                     for(BluetoothConnectionCallback callback :mBluetoothGattCallbackMap.values()){
+                        Log.e(TAG,"서비스에 전달 확인1");
                         callback.onUartChanged(data,targetAddress);
                     }
                 }
             }catch (Exception e){
+                Log.e(TAG,"확인 오류");
+                Log.e(TAG,"오류: "+e.getMessage());
                 mHandler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         try{
                             if(!mBluetoothGattCallbackMap.isEmpty()){
                                 for(BluetoothConnectionCallback callback :mBluetoothGattCallbackMap.values()){
+                                    Log.e(TAG,"서비스에 전달 2");
                                     callback.onUartChanged(data,targetAddress);
                                 }
                             }
@@ -671,6 +696,23 @@ public class BluetoothConnections extends BluetoothGattCallback implements Bluet
 
         return true;
     }
+
+    private final ServiceConnection mBluetoothServiceConnection = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+
+            Log.e(TAG,"확인을 하자 서비스 넣기");
+            BluetoothService.LocalBinder binder = (BluetoothService.LocalBinder) service;
+            mBluetoothService = binder.getService();
+
+        }
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mBluetoothService = null;
+
+        }
+    };
 
 //    public void disconnectAndReset(){
 //        mHandler.removeMessages(HANDLER_CHECK_CALLBACK);

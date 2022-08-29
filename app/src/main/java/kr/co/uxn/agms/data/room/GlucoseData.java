@@ -18,8 +18,11 @@ public class GlucoseData {
     @ColumnInfo(name = "we_current")
     private float we_current;
 
-    @ColumnInfo(name = "we_glucose")
-    private float we_glucose;
+    @ColumnInfo(name = "we_work")
+    private float we_work;
+
+    @ColumnInfo(name = "we_ref")
+    private float we_ref;
 
     @ColumnInfo(name = "user")
     private String user;
@@ -30,12 +33,13 @@ public class GlucoseData {
     @ColumnInfo(name = "battery_level")
     private float batteryLevel;
 
-    public GlucoseData(long uid, String deviceAddress, long data_date, float we_current, float we_glucose, String user, long patientNumber, float batteryLevel) {
+    public GlucoseData(long uid, String deviceAddress, long data_date, float we_current, float we_work,float we_ref, String user, long patientNumber, float batteryLevel) {
         this.uid = uid;
         this.deviceAddress = deviceAddress;
         this.data_date = data_date;
         this.we_current = we_current;
-        this.we_glucose = we_glucose;
+        this.we_work = we_work;
+        this.we_ref = we_ref;
         this.user = user;
         this.patientNumber = patientNumber;
         this.batteryLevel = batteryLevel;
@@ -73,12 +77,20 @@ public class GlucoseData {
         this.we_current = we_current;
     }
 
-    public float getWe_glucose() {
-        return we_glucose;
+    public float getWe_work() {
+        return we_work;
     }
 
-    public void setWe_glucose(float we_glucose) {
-        this.we_glucose = we_glucose;
+    public void setWe_work(float we_work) {
+        this.we_work = we_work;
+    }
+
+    public float getWe_ref() {
+        return we_ref;
+    }
+
+    public void setWe_ref(float we_ref) {
+        this.we_ref=we_ref;
     }
 
     public String getUser() {

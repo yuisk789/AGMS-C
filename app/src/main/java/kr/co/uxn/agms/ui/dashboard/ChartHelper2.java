@@ -172,7 +172,7 @@ public class ChartHelper2 {
                 if (beforeData != null && data.getData_date() >= targetTime) {
                     GlucoseData newData = new GlucoseData(
                             beforeData.getUid(), beforeData.getDeviceAddress(), dataTime,
-                            sumCurrent / dataCount, beforeData.getWe_glucose(), beforeData.getUser(),
+                            sumCurrent / dataCount, beforeData.getWe_work(), beforeData.getWe_ref(), beforeData.getUser(),
                             beforeData.getPatientNumber(), beforeData.getBatteryLevel()
                     );
                     intervalList.add(newData);
@@ -190,7 +190,7 @@ public class ChartHelper2 {
             if(beforeData!=null){
                 GlucoseData newData = new GlucoseData(
                         beforeData.getUid(), beforeData.getDeviceAddress(), dataTime,
-                        sumCurrent / dataCount, beforeData.getWe_glucose(), beforeData.getUser(),
+                        sumCurrent / dataCount, beforeData.getWe_work(),beforeData.getWe_ref(), beforeData.getUser(),
                         beforeData.getPatientNumber(), beforeData.getBatteryLevel()
                 );
                 intervalList.add(newData);
